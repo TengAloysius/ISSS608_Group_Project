@@ -1,0 +1,62 @@
+---
+title: "Proposal V1"
+authors:
+  - name: Aloysius Teng
+    url: https://www.linkedin.com/in/aloysius-teng-32477716a
+  - name: Che Xuan 
+    url: https://www.linkedin.com/in/jacob-che-xuan-b646a9123
+  - name: Chu Yi Ning 
+    url: https://www.linkedin.com/public-profile/settings?trk=d_flagship3_profile_self_view_public_profile
+    affiliation: School of Computing and Information System
+    affiliation_url: https://scis.smu.edu.sg/
+
+date: "`r Sys.Date()`"
+output: distill::distill_article
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# MOTIVATION
+
+We are more inclined to explore the financial landscape of the city as the financial aspect is one of the major yardsticks that countries are being measured for.
+
+# PROBLEMS AND ISSUES
+The team wishes to discover any shortcomings the city faces with regards to business performance, resident financial health and employment outlook as well as to visualise these issues to aid in public policy decisions.
+
+# SOLUTION
+
+### 1. BUSINESS PERFORMANCE
+
+How businesses perform is a straightforward gauge of a city's economic development.
+
+Monthly **revenue** for pubs displaying with a line graph and an animated geom_point plot showing the revenue per customer vs the number of customers through time will be created.
+
+A good measure of the current business performance for pubs is to display the **occupancy rate** throughout the day. The average occupancy rate for Fridays and Saturdays for the last month of the available data will be used.
+
+### 2. FINANCIAL HEALTH OF RESIDENT
+
+A good indicator of resident financial health is their non-essential expenses which can be gauged by aggregating their **expenditure on recreation**.
+
+**Cost of Living vs Wage**. Summing up the expenditure for food, shelter, and education as a reflection cost of living. This would then be compared to the monthly wages for each resident.
+
+
+### 3. EMPLOYMENT PATTERNS
+
+A good measure of the employment pattern in the city was the **total number of trips** to work across time on a monthly basis.
+
+The work commute data could be used to identify the resident’s employer at each time step. By finding the changes in the resident’s employer, the **turnover rate** for each employer could then be computed over time. This information would be displayed on a map to observe the changes in employment pattern across geographical location.
+
+
+
+# SHINY APP DESIGN
+
+Main page of the Shiny App contains a dashboard with scores for the business performance, financial health of residents and employment pattern for the city of Engagement Ohio. Included in the dashboard would be a weighted average of the 3 scores and the whole dashboard could be adjusted with a date slider, hence allowing the user to see the financial health of the city over time.
+
+Through the main page, the user can select either of the 3 scores which would lead to the app displaying the detailed analysis of that aspect of the city’s financial health (business performance, financial health of residents and employment pattern).
+
+```{r, echo=FALSE}
+knitr::include_graphics("data/RShiny draft v2.jpeg")
+```
+
