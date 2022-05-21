@@ -20,7 +20,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # MOTIVATION
 
-We are more inclined to explore the financial landscape of the city as the financial aspect is one of the major yardsticks that countries are being measured for.
+We more are inclined to explore the financial landscape of the city as the financial aspect is one of the major yardsticks that countries are being measured for.
 
 # PROBLEMS AND ISSUES
 The team wishes to discover any shortcomings the city faces with regards to business performance, resident financial health and employment outlook as well as to visualise these issues to aid in public policy decisions.
