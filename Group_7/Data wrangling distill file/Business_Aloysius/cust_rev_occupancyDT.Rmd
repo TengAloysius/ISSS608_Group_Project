@@ -1,0 +1,94 @@
+```{r}
+cust_rev <- travel_journal%>%
+  filter (travelEndLocationId %in% pull(pubs, pubId))%>%
+  filter (purpose %in% c("Recreation (Social Gathering)","Eating"))%>%
+  mutate(spent = startingBalance - endingBalance,
+         month = month(checkInTime),
+         year = year(checkInTime),
+         travelEndLocationId=as.character(travelEndLocationId))%>%
+  group_by(travelEndLocationId, month, year)%>%
+  summarize(customers = n(), revenue = sum(spent))%>%
+  mutate(timestep = if_else(year==2023, month+10,month-2),
+         revenuePerCustomer = revenue/customers)%>%
+  rename(pubId = travelEndLocationId)%>%
+  ungroup()
+
+glimpse(cust_rev)
+```
+
+```{r}
+occ1 <- travel_journal%>%
+  filter (travelEndLocationId %in% pull(pubs, pubId))%>%
+  filter (purpose %in% c("Recreation (Social Gathering)","Eating"))%>%
+  filter (checkInTime >= "2023-04-25 00:00:00")%>%
+  mutate(dayOfWeek = wday(checkInTime, label = TRUE))%>%
+  arrange(checkInTime)%>%
+  filter (dayOfWeek %in% c("Fri","Sat"))
+occ1 <- mutate(occ1, identifier = seq.int(nrow(occ1)))
+
+occ2 <- travel_journal%>%
+  filter (travelEndLocationId %in% pull(pubs, pubId))%>%
+  filter (purpose %in% c("Recreation (Social Gathering)","Eating"))%>%
+  filter (checkInTime <= "2022-03-31 00:00:00")%>%
+  mutate(dayOfWeek = wday(checkInTime, label = TRUE))%>%
+  arrange(checkInTime)%>%
+  filter (dayOfWeek %in% c("Fri","Sat"))
+occ2 <- mutate(occ2, identifier = seq.int(nrow(occ2)))
+
+occupancy_DT <- tibble(
+  base_hour = numeric(),
+  pubId = character(),
+  occupancy_rate = numeric(),
+  period = character()
+)
+
+for (i in seq(1, as.numeric(count(pubs)))){
+  occtemp1 <- interval_census(filter(occ1,travelEndLocationId == pull(pubs, pubId)[i]),
+                                identifier =  "identifier",
+                                admit = "checkInTime",
+                                discharge  = "checkOutTime", 
+                                time_unit = '1 hour',
+                                time_adjust_period = 'end_min',
+                                time_adjust_value = 59,                
+                                results = 'total',
+                                uniques = FALSE)%>%
+                select(base_hour, N)%>%
+                group_by(base_hour)%>%
+                summarize(occupancy_rate = (sum(N)/8)/pull(pubs, maxOccupancy)[i])%>%
+                right_join(data.frame(base_hour = 0:23), by = "base_hour")%>%
+                mutate(pubId=as.character(pull(pubs, pubId)[i]), .after = base_hour, period = "last")%>%
+                replace_na(list(occupancy = 0, occupancy_rate = 0))
+  occupancy_DT <- bind_rows(occupancy_DT, occtemp1)
+  }
+
+  for (i in seq(1, as.numeric(count(pubs)))) {
+  occtemp2 <- interval_census(filter(occ2,travelEndLocationId == pull(pubs, pubId)[i]),
+                                identifier =  "identifier",
+                                admit = "checkInTime",
+                                discharge  = "checkOutTime", 
+                                time_unit = '1 hour',
+                                time_adjust_period = 'end_min',
+                                time_adjust_value = 59,                
+                                results = 'total',
+                                uniques = FALSE)%>%
+                select(base_hour, N)%>%
+                group_by(base_hour)%>%
+                summarize(occupancy_rate = (sum(N)/8)/pull(pubs, maxOccupancy)[i])%>%
+                right_join(data.frame(base_hour = 0:23), by = "base_hour")%>%
+                mutate(pubId=as.character(pull(pubs, pubId)[i]), .after = base_hour, period = "first")%>%
+                replace_na(list(occupancy = 0, occupancy_rate = 0))
+occupancy_DT <- bind_rows(occupancy_DT, occtemp2)
+  }
+
+occupancy_DT <- pivot_wider(occupancy_DT, 
+                            names_from = period, 
+                            values_from = occupancy_rate)
+```
+
+```{r}
+cust_rev <- read_csv("data/cust_rev.csv")%>%
+  mutate(customers=as.integer(customers), pubId=as.character(pubId))
+
+occupancy_DT <- read_csv("data/occupancy_DT.csv")%>%
+  mutate(pubId=as.character(pubId))
+```

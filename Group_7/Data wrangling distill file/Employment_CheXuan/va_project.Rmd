@@ -1,0 +1,220 @@
+---
+title: "Visual Analytics Project"
+description: |
+  I will explore the health of various employers in the city of Engagement, Ohio USA.
+author:
+  - name: Che Xuan 
+    url: https://www.linkedin.com/in/jacob-che-xuan-b646a9123/
+date: "`r Sys.Date()`"
+output: distill::distill_article
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, 
+                      eval = TRUE,
+                      message = FALSE,
+                      warning = FALSE,
+                      fig.retina = 3)
+```
+
+# Overview
+
+In this project, appropriate static and interactive statistical graphics methods are used to reveal the employment patterns of the [city of Engagement, Ohio USA](https://vast-challenge.github.io/2022/).
+
+The data are processed by using appropriate **tidyverse** family of packages and the statistical graphics are prepared using **ggplot2** and its extensions.
+
+
+# Installing & Launching R Packages
+
+Before we get started, it is important for us to ensure that the required R packages have been installed. If yes, we will load the R packages. If they have yet to be installed, we will install the R packages and load them onto R environment.
+
+The chunk code below will do the trick.
+
+```{r}
+packages = c('tidyverse', 'lubridate', 'treemapify', 'ggiraph', 'plotly', 'DT', 'patchwork', 'gganimate', 'treemap', 'd3treeR')
+
+for(p in packages){
+  if(!require(p, character.only = T)){
+    install.packages(p)
+  }
+  library(p, character.only = T)
+}
+
+```
+
+
+# Importing Data
+
+```{r echo=FALSE}
+participants <- read_csv("C:/Jacobche/ISSS608/th_ex/rawdata/Participants.csv")
+checkin <- read_csv("C:/Jacobche/ISSS608/th_ex/rawdata/CheckinJournal.csv")
+travel <- read_csv("C:/Jacobche/ISSS608/th_ex/rawdata/TravelJournal.csv")
+employers <- read_csv("C:/Jacobche/ISSS608/th_ex/rawdata/Employers.csv")
+jobs <- read_csv("C:/Jacobche/ISSS608/th_ex/rawdata/Jobs.csv")
+```
+
+# Data Wrangling
+
+```{r echo=FALSE}
+checkin_work <- checkin %>%
+  filter(venueType == 'Workplace')
+```
+
+Percentage of jobs which involve weekends duties:
+
+```{r echo=FALSE}
+jobs_weekends <- jobs %>%
+  mutate(day_type = ifelse(str_detect(daysToWork, c("Saturday", "Sunday")) == TRUE, "weekends", "weekdays")) %>%
+  group_by(day_type) %>%
+  summarise(count = n()) %>%
+  ungroup()
+```
+
+```{r echo=FALSE}
+ggplot(jobs_weekends, 
+       aes(x = 2, y = count, fill = day_type)) +
+  geom_col() +
+  geom_text(aes(label=paste0(count, " (", round(count/sum(count)*100, 1), "%)")),
+            position = position_stack(vjust = 0.5)) +
+  coord_polar(theta = "y") +
+  xlim(.1,2.5) +
+  guides(fill = guide_legend(title = "Day Type")) +
+  theme(panel.background = element_rect(fill = "white"),
+        panel.grid = element_blank(),
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text = element_blank())
+```
+
+Look at by employers
+
+```{r echo=FALSE}
+jobs_employers <- jobs %>%
+  group_by(employerId) %>%
+  summarise(jobs_count = n(),
+            avg_hourly_rate = round(mean(hourlyRate),1)) %>%
+  ungroup()
+```
+
+```{r echo=FALSE}
+jobs_employers$employerId = as.character(jobs_employers$employerId)
+```
+
+
+```{r echo=FALSE}
+ggplot(jobs_employers, aes(area = avg_hourly_rate, fill = avg_hourly_rate)) +
+  geom_treemap() +
+  scale_fill_distiller(direction = 1)
+```
+
+By Company Size
+
+```{r echo=FALSE}
+jobs_employers_1 <- jobs_employers %>%
+  group_by(jobs_count) %>%
+  summarise(companies_count = n()) %>%
+  ungroup() %>%
+  mutate(percentage = round(companies_count/sum(companies_count)*100, 1))
+```
+
+```{r echo=FALSE}
+jobs_employers_1$jobs_count = as.character(jobs_employers_1$jobs_count)
+```
+
+```{r echo=FALSE}
+ggplot(jobs_employers_1, 
+       aes(x = reorder(jobs_count, companies_count), y=companies_count)) +
+  geom_bar(stat = "identity", color="black", fill="light blue") +
+  geom_text(aes(label=paste0(companies_count, " (", round(companies_count/sum(companies_count)*100, 1), "%)")),
+            position = position_stack(vjust = 0.5)) +
+  coord_flip() +
+  labs(y= 'Number of Companies', x= 'Jobs Count') +
+  theme(axis.title.y= element_text(angle=0), axis.ticks.x= element_blank(), axis.text.x=element_blank(),
+      axis.ticks.y= element_blank(), axis.line= element_line(color= 'grey'))
+```
+
+
+```{r}
+write.csv(jobs_employers,"jobs_employers.csv", row.names = FALSE)
+```
+
+```{r}
+write.csv(jobs_employers_1,"jobs_employers_1.csv", row.names = FALSE)
+```
+
+
+Travel to work
+
+```{r}
+travel$year_month <- format(as.Date(travel$`travelEndTime`), "%Y-%m")
+travel$day <- day(travel$`travelEndTime`)
+travel$wkday <- weekdays(travel$`travelEndTime`)
+```
+
+```{r}
+travel_to_work <- travel %>%
+  filter(purpose == 'Work/Home Commute') %>%
+  inner_join(y=employers, by = c("travelEndLocationId" = "employerId")) %>%
+  select(participantId, travelEndTime, year_month, day, wkday, travelEndLocationId, purpose, location, buildingId) %>%
+  rename('employerId' = 'travelEndLocationId')
+```
+
+```{r}
+travel_to_work$purpose <- sub('Work/Home Commute', 
+                              'Work',
+                              travel_to_work$purpose)
+```
+
+```{r}
+travel_to_work_daily_count <- travel_to_work %>%
+  group_by(employerId, year_month, day, wkday) %>%
+  summarise(count = n()) %>%
+  ungroup()
+```
+
+```{r}
+travel_to_work_monthly_change <- travel_to_work_daily_count %>%
+  group_by(employerId, year_month) %>%
+  summarise(monthly_employees = max(count)) %>%
+  mutate(mom_change = coalesce(monthly_employees - lead(monthly_employees),0),
+         mom_turnover_rate = coalesce((monthly_employees - lead(monthly_employees))/monthly_employees,0)) %>%
+  ungroup()
+```
+
+```{r}
+turnover_by_employers <- travel_to_work_monthly_change %>%
+  group_by(employerId) %>%
+  summarise(turnovers = sum(mom_change)) %>%
+  ungroup()
+```
+
+```{r}
+employers_revised <- employers %>%
+  inner_join(y=turnover_by_employers, by = c("employerId" = "employerId"))
+```
+
+```{r}
+employers_revised$level <- cut(employers_revised$turnovers, breaks = c(-1,0,2,15), labels = c("Low Rate","Medium Rate","High Rate"))
+```
+
+
+```{r}
+write.csv(employers_revised,"employers_revised.csv", row.names = FALSE)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

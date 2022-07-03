@@ -1,0 +1,212 @@
+---
+title: "Data wrangling for Financials"
+description: |
+  
+author
+  - name: Chu Yi Ning
+    url: 
+    affiliation: SMU MITB
+    affiliation_url: 
+date: "`r Sys.Date()`"
+output: distill::distill_article
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r}
+packages = c('tidyverse', 'dplyr', 'zoo', 'ggplot2', 'ggthemes', 'plotly')
+for(p in packages){
+  if(!require(p, character.only = T)){
+    install.packages(p)
+  }
+  library(p, character.only = T)
+}
+```
+
+```{r}
+Fin<- read_csv("data/FinancialJournal.csv")
+dim(data)
+```
+
+```{r}
+Fin_dist <- Fin %>% distinct(participantId, timestamp, category, amount,
+                   .keep_all = TRUE)
+```
+
+```{r}
+saving <- Fin_dist %>% filter(category == 'Wage' & amount > 999 )
+```
+
+```{r}
+Fin_clean <- Fin_dist[!(Fin_dist$category == 'Wage' & Fin_dist$amount > 999),]
+```
+
+
+```{r}
+Fin_clean <- Fin_clean %>%
+  mutate(yearmonth = as.yearmon(timestamp))
+```
+
+```{r}
+Fin_group <- Fin_clean %>%
+  group_by(participantId, category, yearmonth) %>%
+  summarise(amount = abs(sum(amount)),
+                             .groups = 'drop')
+```
+
+```{r}
+Fin_group <- Fin_group[!(Fin_group$category == 'Recreation' | Fin_group$category == 'RentAdjustment'),]
+```
+
+```{r}
+Cost <- Fin_group %>%
+  filter(category == 'Education' | category == 'Food'| category == 'Shelter')
+```
+
+```{r}
+Cost <- Cost %>%
+  group_by(participantId, yearmonth) %>%
+  summarise(amount = abs(sum(amount)),
+                             .groups = 'drop')
+```
+
+```{r}
+colnames(Cost)[3] = 'CostofLiving'
+```
+
+```{r}
+Wage <- Fin_group %>%
+  filter(category == 'Wage')
+```
+
+```{r}
+colnames(Wage)[4] = 'Wage'
+```
+
+```{r}
+Wage <- select(Wage, -category)
+```
+
+```{r}
+Fin_final <- merge(Wage, Cost, by = c('participantId','yearmonth'))
+```
+
+```{r}
+Fin_final <- Fin_final %>% 
+  mutate(ratio = CostofLiving/Wage)
+```
+
+```{r}
+Part<- read_csv("data/Participants_group project.csv")
+```
+
+```{r}
+Fin_final <- merge(Fin_final, Part, by = 'participantId')
+```
+
+```{r}
+write_rds(Fin_final, 'data/Fin.rds')
+```
+
+
+
+```{r}
+Fin_n15 <- Fin_final %>%
+  group_by(participantId) %>%
+  mutate(freq = n()) %>%
+  ungroup() %>%
+  filter(freq == 15)
+```
+
+```{r}
+Fin_n15 = subset(Fin_n15, select = -c(ratio, freq))
+```
+
+
+```{r}
+write_rds(Fin_n15, 'data/Fin.rds')
+```
+
+```{r}
+write_csv(Fin_n15, 'data/Fin.csv')
+```
+
+
+
+
+```{r}
+table(Fin_final['participantId'])
+```
+
+```{r}
+Fin <- read_rds('data/Fin.rds')
+```
+
+```{r}
+p <- ggplot(Fin, aes(x = yearmonth)) +
+  geom_line(aes(y = Wage), stat = 'summary') +
+  geom_line(aes(y = CostofLiving), stat = 'summary') +
+  ylab('Amount') +
+  theme_stata()
+
+ggplotly(p)
+```
+
+```{r}
+Fin <- Fin %>%
+  mutate(joviality_r = round(Fin$joviality, 2))
+```
+
+```{r}
+write_rds(Fin, 'data/Fin.rds')
+```
+
+```{r}
+Fin = subset(Fin, select = -joviality)
+```
+
+```{r}
+colnames(Fin)[8] = 'joviality'
+```
+
+```{r}
+write_rds(Fin, 'data/Fin.rds')
+```
+
+```{r}
+Fin <- Fin %>% 
+  mutate(ratio = CostofLiving/Wage)
+```
+
+```{r}
+ggplot(Fin, aes(x = yearmonth)) +
+  geom_line(aes(y = ratio, color = '% of cost of living accounts for wage'), 
+            stat = 'summary', size = 1) +
+  ylab('Cost of Living / Wage') +
+  scale_color_manual(name = ' ', values = c('% of cost of living accounts for wage' =  'antiquewhite3')) +
+  theme_stata()
+```
+
+
+```{r}
+
+p1 <- ggplot(Fin, aes(x = yearmonth)) +
+  geom_line(aes(y = ratio, color = '% of cost of living accounts for wage'), 
+            stat = 'summary', size = 1) +
+  ylab('Cost of Living / Wage') +
+  scale_color_manual(name = ' ', values = c('% of cost of living accounts for wage' =  'antiquewhite3')) +
+  theme_stata()
+
+text <- paste("Cost of living accounts for:", 2)
+
+ggplotly(p1)
+
+```
+
+```{r}
+Fin2 <- Fin %>% group_by(yearmonth) %>% summarise(Wage = median(Wage), CostofLiving = median(CostofLiving)) %>% mutate(ratio = CostofLiving/Wage)
+```
+
+
